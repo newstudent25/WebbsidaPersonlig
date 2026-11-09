@@ -24,3 +24,4 @@ app.ticker.add(() => {
   }
   dots.fill("#2b44d6");
 });
+
