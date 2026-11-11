@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interactive Beats – Erik Selin</title>
+  <style>
+    :root {
+      --blue: #2a1eec;
+      --yellow: #f9e05f;
+      --ink: #111111;
+      --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --mono: "Courier New", Courier, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    /* Way back to the loop */
+    .back {
+      position: fixed;
+      top: 1rem;
+      left: 1.25rem;
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .back:hover { text-decoration: underline; }
+
+    /* The label itself: sizes scale with the width of the page */
+    .label {
+      container-type: inline-size;
+      width: min(100% - 2.5rem, 44rem);
+      margin: 4rem auto 3rem;
+    }
+
+    /* Blue block with the title in the bottom-left corner */
+    .cover {
+      aspect-ratio: 637 / 414;
+      background: var(--blue);
+      color: #ffffff;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 0.2em;
+    }
+    .cover h1 {
+      margin: 0;
+      font-size: 9.2cqw;
+      font-weight: 300;
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+
+    /* Yellow highlighted credits */
+    .credits {
+      display: inline-block;
+      margin: 1.4cqw 0 0;
+      padding: 0.1em 0.3em;
+      background: var(--yellow);
+      font-size: 5.8cqw;
+      font-weight: 400;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .description {
+      margin: 3cqw 0 0;
+      font-size: max(1rem, 3.45cqw);
+      line-height: 1.2;
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; Erik Selin</a>
+
+  <main class="label">
+    <div class="cover">
+      <h1>Interactive Beats</h1>
+    </div>
+    <p class="credits">Erik Selin, Linus Cornejo</p>
+    <p class="description">
+      We have created an application to your midi keyboard that allows you to create a beat
+      from preselected sounds. Alongside these sounds the visuals on the screen change
+      depending on the sounds you play.
+    </p>
+  </main>
+</body>
+</html>

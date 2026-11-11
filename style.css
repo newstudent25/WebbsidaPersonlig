@@ -1,17 +1,65 @@
-body {
+:root {
+  --bg: #eeeeee;
+  --green: #357a1e;
+  --black: #000000;
+  --red: #e83323;
+  --text-on-green: #000000;
+  --text-on-black: #ffffff;
+  --font: "Courier New", Courier, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
   margin: 0;
-  font-family: sans-serif;
+  height: 100%;
+  background: var(--bg);
+  font-family: var(--font);
+  overflow: hidden;
 }
 
-/* The Pixi canvas sits behind the text */
-canvas {
+/* Name in the corner */
+header {
   position: fixed;
-  top: 0;
-  left: 0;
-  z-index: -1;
+  top: 1rem;
+  left: 1.25rem;
+  z-index: 2;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+header h1 { margin: 0; font-size: 1rem; font-weight: 700; }
+header p  { margin: 0; }
+
+nav { position: fixed; inset: 0; }
+
+#loop {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-main {
-  max-width: 40rem;
-  padding: 2rem;
+#loop .red {
+  fill: none;
+  stroke: var(--red);
+  stroke-linejoin: round;
 }
+
+#loop .seg { fill: none; stroke-linecap: butt; }
+#loop .seg.green { stroke: var(--green); }
+#loop .seg.black { stroke: var(--black); }
+
+#loop text {
+  font-family: var(--font);
+  dominant-baseline: central;
+  pointer-events: none;
+  user-select: none;
+}
+#loop .green + text { fill: var(--text-on-green); }
+#loop .black + text { fill: var(--text-on-black); }
+
+/* Hover / keyboard focus on a segment */
+#loop a { cursor: pointer; outline: none; }
+#loop a:hover .seg,
+#loop a:focus-visible .seg { stroke: var(--red); }
+#loop a:hover .seg + text,
+#loop a:focus-visible .seg + text { fill: #ffffff; }

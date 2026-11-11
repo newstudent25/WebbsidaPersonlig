@@ -4,24 +4,292 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Erik Selin</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    :root { --font: "Courier New", Courier, monospace; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #eeeeee;
+      font-family: var(--font);
+      overflow: hidden;
+    }
+
+    /* The Pixi canvas fills the page */
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: block;
+    }
+
+    /* Name in the corner, on top of the canvas */
+    header {
+      position: fixed;
+      top: 1rem;
+      left: 1.25rem;
+      z-index: 2;
+      font-size: 0.9rem;
+      line-height: 1.3;
+      pointer-events: none;
+    }
+    header h1 { margin: 0; font-size: 1rem; font-weight: 700; }
+    header p  { margin: 0; }
+  </style>
 </head>
 <body>
-  <main>
+  <header>
     <h1>Erik Selin</h1>
     <p>Student at Södertörn University</p>
-
-    <h2>Work</h2>
-    <ul>
-      <li></li>
-      <li></li>
-      <li>  </li>
-      <li></li>
-      <li></li>
-    </ul>
-  </main>
+  </header>
 
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script>
-  <script type="module" src="main.js"></script>
+  <script type="module">
+// ─────────────────────────────────────────────────────────────
+//  YOUR PROJECTS — add, remove or reorder entries here.
+//  Each one becomes a clickable segment on the loop.
+//    title: the text shown on the segment (short is better)
+//    url:   where it links to (a page, a folder, or an outside link)
+// ─────────────────────────────────────────────────────────────
+const projects = [
+  { title: "placeholder",     url: "#" },
+  { title: "project one",     url: "project-one.html" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+  { title: "placeholder",     url: "#" },
+];
+
+// ─────────────────────────────────────────────────────────────
+//  Settings you can tweak
+// ─────────────────────────────────────────────────────────────
+const settings = {
+  speed: 1,            // 0 = still, 1 = normal, 2 = twice as fast
+  wobble: 0.16,        // how irregular the loop is
+  maxFontSize: 18,     // upper limit for the label size
+  redWidth: 26,        // thickness of the red loop
+};
+
+const COLORS = {
+  background: "#eeeeee",
+  green: 0x357a1e,
+  black: 0x000000,
+  red: 0xe83323,
+  white: 0xffffff,
+};
+const FONT = "Courier New, Courier, monospace";
+
+// ─────────────────────────────────────────────────────────────
+//  Below here is the engine — you shouldn't need to edit it
+// ─────────────────────────────────────────────────────────────
+const W = 1200, H = 700;      // the drawing is 1200 x 700 and scaled to fit the window
+const TAU = Math.PI * 2;
+const CTRL = 10;              // control points per loop
+const STEPS = 40;             // samples between control points
+const OVERLAP = 3;            // how far each band tucks under the next one
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Start Pixi and put its canvas on the page
+const app = new PIXI.Application();
+await app.init({
+  resizeTo: window,
+  background: COLORS.background,
+  antialias: true,
+  resolution: window.devicePixelRatio || 1,
+  autoDensity: true,
+});
+document.body.appendChild(app.canvas);
+
+const world = new PIXI.Container();
+app.stage.addChild(world);
+
+// ── Loop geometry ──
+
+// A wobbly closed shape: control points around an ellipse, pushed in/out by slow waves
+function controlPoints(t, cx, cy, rx, ry, seed) {
+  const pts = [];
+  for (let i = 0; i < CTRL; i++) {
+    const a = (i / CTRL) * TAU;
+    const f = 1 + settings.wobble * (
+      0.6 * Math.sin(a * 2 + seed + t * 0.00031) +
+      0.4 * Math.sin(a * 3 - seed * 1.3 + t * 0.00047)
+    );
+    pts.push([cx + rx * f * Math.cos(a), cy + ry * f * Math.sin(a)]);
+  }
+  return pts;
+}
+
+// Smooth closed curve (Catmull-Rom) through the control points
+function smooth(ctrl) {
+  const out = [];
+  const n = ctrl.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = ctrl[(i - 1 + n) % n], p1 = ctrl[i];
+    const p2 = ctrl[(i + 1) % n],     p3 = ctrl[(i + 2) % n];
+    for (let k = 0; k < STEPS; k++) {
+      const u = k / STEPS, u2 = u * u, u3 = u2 * u;
+      const x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * u +
+        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 +
+        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3);
+      const y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * u +
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3);
+      out.push([x, y]);
+    }
+  }
+  out.push(out[0]); // close the loop
+  return out;
+}
+
+const mainLoop = (t) => smooth(controlPoints(t, 600, 350, 430, 250, 0));
+const redLoop  = (t) => smooth(controlPoints(t, 640, 360, 470, 270, 2.1));
+
+function cumulative(pts) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  }
+  return cum;
+}
+
+// Point (and direction) at a given distance along the loop
+function pointAt(pts, cum, d) {
+  let lo = 0, hi = cum.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (cum[mid] < d) lo = mid; else hi = mid;
+  }
+  const span = cum[hi] - cum[lo] || 1;
+  const k = Math.min(1, Math.max(0, (d - cum[lo]) / span));
+  const x = pts[lo][0] + (pts[hi][0] - pts[lo][0]) * k;
+  const y = pts[lo][1] + (pts[hi][1] - pts[lo][1]) * k;
+  // direction from a slightly wider window, so letters turn smoothly
+  const a = pts[Math.max(0, lo - 2)], b = pts[Math.min(pts.length - 1, hi + 2)];
+  return { x, y, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+}
+
+// ── Build the scene ──
+
+const redG = new PIXI.Graphics();
+world.addChild(redG);
+
+// Size the labels once, from the loop's length
+const weights = projects.map((p) => p.title.length + 2);
+const weightSum = weights.reduce((a, b) => a + b, 0);
+const firstTotal = cumulative(mainLoop(0)).at(-1);
+const fontSize = Math.max(11, Math.min(settings.maxFontSize, (firstTotal / weightSum) * 1.5));
+const bandWidth = fontSize * 1.3;
+const charWidth = fontSize * 0.6;   // monospace letters are 0.6 em wide
+
+const segments = projects.map((p, i) => {
+  const g = new PIXI.Graphics();
+  g.eventMode = "static";
+  g.cursor = "pointer";
+  world.addChild(g);
+
+  const seg = { g, base: i % 2 === 0 ? COLORS.green : COLORS.black, hover: false, chars: [] };
+  const idleText = seg.base === COLORS.black ? COLORS.white : COLORS.black;
+
+  for (const ch of p.title) {
+    const t = new PIXI.Text({
+      text: ch,
+      style: { fontFamily: FONT, fontSize, fill: idleText },
+      resolution: 4,
+    });
+    t.anchor.set(0.5);
+    t.eventMode = "none";
+    t.visible = ch !== " ";
+    world.addChild(t);
+    seg.chars.push(t);
+  }
+
+  const setHover = (on) => {
+    seg.hover = on;
+    const fill = on ? COLORS.white : idleText;
+    seg.chars.forEach((t) => { t.style.fill = fill; });
+  };
+  g.on("pointerover", () => setHover(true));
+  g.on("pointerout", () => setHover(false));
+  g.on("pointertap", () => { window.location.href = p.url; });
+  return seg;
+});
+
+// ── Draw every frame ──
+
+function layout() {
+  const s = Math.min(app.screen.width / W, app.screen.height / H);
+  world.scale.set(s);
+  world.position.set((app.screen.width - W * s) / 2, (app.screen.height - H * s) / 2);
+}
+
+function draw(time) {
+  layout();
+
+  // Red loop (behind)
+  const rp = redLoop(time);
+  redG.clear();
+  redG.moveTo(rp[0][0], rp[0][1]);
+  for (let i = 1; i < rp.length; i++) redG.lineTo(rp[i][0], rp[i][1]);
+  redG.closePath();
+  redG.stroke({ width: settings.redWidth, color: COLORS.red, join: "round" });
+
+  // Main loop
+  const pts = mainLoop(time);
+  const cum = cumulative(pts);
+  const total = cum[cum.length - 1];
+
+  let acc = 0;
+  segments.forEach((seg, i) => {
+    const start = (acc / weightSum) * total;
+    acc += weights[i];
+    const end = (acc / weightSum) * total;
+
+    // The coloured band: a stretch of the loop
+    const first = pointAt(pts, cum, start);
+    seg.g.clear();
+    seg.g.moveTo(first.x, first.y);
+    for (let k = 0; k < pts.length; k++) {
+      if (cum[k] > start && cum[k] < end) seg.g.lineTo(pts[k][0], pts[k][1]);
+    }
+    const last = pointAt(pts, cum, end);
+    seg.g.lineTo(last.x, last.y);
+    // Run a hair past the end so this band overlaps the next one (no gap at the join).
+    // The last band wraps round and overlaps the start of the first.
+    const over = pointAt(pts, cum, (end + OVERLAP) % total);
+    seg.g.lineTo(over.x, over.y);
+    seg.g.stroke({ width: bandWidth, color: seg.hover ? COLORS.red : seg.base, cap: "butt", join: "round" });
+
+    // Is this label heading leftwards (upside down)? If so, write it the other way round.
+    // The two thresholds stop a label from flip-flopping while it sits near vertical.
+    const lean = Math.cos(pointAt(pts, cum, (start + end) / 2).angle);
+    if (seg.flipped === undefined) seg.flipped = lean < 0;
+    else if (!seg.flipped && lean < -0.2) seg.flipped = true;
+    else if (seg.flipped && lean > 0.2) seg.flipped = false;
+
+    // The letters: centred on the band, one by one
+    const n = seg.chars.length;
+    const from = start + (end - start - n * charWidth) / 2;
+    seg.chars.forEach((t, j) => {
+      const slot = seg.flipped ? n - 1 - j : j;   // reversed order when flipped
+      const p = pointAt(pts, cum, from + (slot + 0.5) * charWidth);
+      t.position.set(p.x, p.y);
+      t.rotation = seg.flipped ? p.angle + Math.PI : p.angle;
+    });
+  });
+}
+
+let time = 0;
+app.ticker.add((ticker) => {
+  if (!reduceMotion) time += ticker.deltaMS * settings.speed;
+  draw(time);
+});
+  </script>
 </body>
 </html>
