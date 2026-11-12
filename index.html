@@ -75,6 +75,8 @@ const settings = {
   wobble: 0.16,        // how irregular the loop is
   maxFontSize: 18,     // upper limit for the label size
   redWidth: 26,        // thickness of the red loop
+  boostSpeed: 8,       // speed multiplier while spacebar is held
+  boostEase: 250,      // ms to ease up/down (higher = slower, smoother)
 };
 
 const COLORS = {
@@ -285,9 +287,26 @@ function draw(time) {
   });
 }
 
+// ── Spacebar boost: hold space to speed the loop up, release to ease back ──
+let boost = 1;          // current speed multiplier (eases toward boostTarget)
+let boostTarget = 1;
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    boostTarget = settings.boostSpeed;
+  }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.code === "Space") boostTarget = 1;
+});
+// Don't get stuck fast if the window loses focus while space is held
+window.addEventListener("blur", () => { boostTarget = 1; });
+
 let time = 0;
 app.ticker.add((ticker) => {
-  if (!reduceMotion) time += ticker.deltaMS * settings.speed;
+  // Ease the multiplier toward its target (frame-rate independent)
+  boost += (boostTarget - boost) * (1 - Math.exp(-ticker.deltaMS / settings.boostEase));
+  if (!reduceMotion) time += ticker.deltaMS * settings.speed * boost;
   draw(time);
 });
   </script>
