@@ -14,7 +14,7 @@
     }
     canvas { position: fixed; top: 0; left: 0; display: block; }
 
-    /* Name in the corner, on top of the canvas */
+    /* Namn uppe i hörnet. Ligger ovanpå ritytan. */
     header {
       position: fixed;
       top: 1rem;
@@ -37,10 +37,10 @@
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script>
   <script type="module">
 // ─────────────────────────────────────────────────────────────
-//  YOUR PROJECTS — add, remove or reorder entries here.
-//  Each one becomes a clickable segment on the loop.
-//    title: the text shown on the segment (short is better)
-//    url:   where it links to (a page, a folder, or an outside link)
+//  DINA PROJEKT. Lägg till, ta bort, byt plats. Lätt.
+//  Varje rad blir en bit på ringen. Klicka bit = gå till sida.
+//    title: ord på biten (kort ord bra)
+//    url:   dit biten leder (sida, mapp eller länk)
 // ─────────────────────────────────────────────────────────────
 const projects = [
   { title: "placeholder", url: "#" },
@@ -59,34 +59,35 @@ const projects = [
 ];
 
 // ─────────────────────────────────────────────────────────────
-//  Settings you can tweak
+//  INSTÄLLNINGAR. Vrid på knappar här.
 // ─────────────────────────────────────────────────────────────
 const settings = {
-  speed: 1,            // 0 = still, 1 = normal, 2 = twice as fast
-  wobble: 0.16,        // how irregular the loop is
-  maxFontSize: 18,     // upper limit for the label size
-  redWidth: 26,        // thickness of the red loop
-  boostSpeed: 8,       // speed multiplier while spacebar is held
-  boostEase: 250,      // ms to ease up/down (higher = slower, smoother)
-  imageUrl: null,      // e.g. "me.jpg" — leave null to show the grey placeholder
-  imageWidth: 420,     // size of the centre box (in the 1200 x 700 drawing)
-  imageHeight: 240,
-  edgeBlur: 26,        // how soft the image edges are (0 = sharp)
+  speed: 1,            // 0 = stå still, 1 = vanlig fart, 2 = dubbel fart
+  wobble: 0.16,        // hur skev och vinglig ringen är
+  maxFontSize: 18,     // största bokstav på biten
+  redWidth: 26,        // hur tjock röd ring är
+  boostSpeed: 8,       // hur många gånger snabbare när mellanslag hålls ner
+  boostEase: 250,      // tid (ms) att bli snabb/långsam. Högre = mjukare
+  imageUrl: null,      // t.ex. "me.jpg". null = grå låda
+  imageWidth: 420,     // bredd på bildlåda mitt i
+  imageHeight: 240,    // höjd på bildlåda
+  edgeBlur: 26,        // hur mjuk bildkant är (0 = hård kant)
 };
 
 const COLORS = { background: "#eeeeee", green: 0x357a1e, black: 0x000000, red: 0xe83323, white: 0xffffff };
 const FONT = "Courier New, Courier, monospace";
 
 // ─────────────────────────────────────────────────────────────
-//  Below here is the engine — you shouldn't need to edit it
+//  HÄR UNDER ÄR MOTORN. Rör inte om du inte måste. Farligt.
 // ─────────────────────────────────────────────────────────────
-const W = 1200, H = 700;   // the drawing is 1200 x 700 and scaled to fit the window
-const TAU = Math.PI * 2;
-const CTRL = 10;           // control points per loop
-const STEPS = 40;          // samples between control points
-const OVERLAP = 3;         // how far each band tucks under the next one
-const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const W = 1200, H = 700;   // ritning är 1200 x 700. Krymps/växer så den passar fönster
+const TAU = Math.PI * 2;   // ett helt varv
+const CTRL = 10;           // antal knutpunkter på ringen
+const STEPS = 40;          // små steg mellan knutpunkter
+const OVERLAP = 3;         // hur mycket bit kryper in under nästa bit (ingen glipa)
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;   // om människa vill ha lite rörelse
 
+// Starta Pixi. Lägg ritytan på sidan.
 const app = new PIXI.Application();
 await app.init({
   resizeTo: window,
@@ -97,12 +98,13 @@ await app.init({
 });
 document.body.appendChild(app.canvas);
 
+// "world" = låda som håller allt. Vi krymper/flyttar lådan så allt passar.
 const world = new PIXI.Container();
 app.stage.addChild(world);
 
-// ── Loop geometry ──
+// ── Ringens form ──
 
-// A wobbly closed shape: control points around an ellipse, pushed in/out by slow waves
+// Vinglig ring. Punkter runt en oval. Långsamma vågor puttar punkter in och ut.
 function controlPoints(t, cx, cy, rx, ry, seed) {
   return Array.from({ length: CTRL }, (_, i) => {
     const a = (i / CTRL) * TAU;
@@ -114,11 +116,11 @@ function controlPoints(t, cx, cy, rx, ry, seed) {
   });
 }
 
-// One coordinate of a Catmull-Rom spline
+// Mattegrej (Catmull-Rom). Gör mjuk kurva. Ett håll i taget (x eller y).
 const spline = (a, b, c, d, u) =>
   0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u * u + (-a + 3 * b - 3 * c + d) * u * u * u);
 
-// Smooth closed curve through the control points
+// Gör hackig punkt-ring till mjuk rund ring.
 function smooth(ctrl) {
   const n = ctrl.length, out = [];
   for (let i = 0; i < n; i++) {
@@ -128,14 +130,14 @@ function smooth(ctrl) {
       out.push([spline(p0[0], p1[0], p2[0], p3[0], u), spline(p0[1], p1[1], p2[1], p3[1], u)]);
     }
   }
-  out.push(out[0]); // close the loop
+  out.push(out[0]); // stäng ringen. Sista punkt = första punkt.
   return out;
 }
 
-const mainLoop = (t) => smooth(controlPoints(t, 600, 350, 430, 250, 0));
-const redLoop  = (t) => smooth(controlPoints(t, 640, 360, 470, 270, 2.1));
+const mainLoop = (t) => smooth(controlPoints(t, 600, 350, 430, 250, 0));     // ring med ord
+const redLoop  = (t) => smooth(controlPoints(t, 640, 360, 470, 270, 2.1));   // röd ring bakom
 
-// Running distance along the loop at each point
+// Räkna hur långt man gått längs ringen vid varje punkt.
 function cumulative(pts) {
   const cum = [0];
   for (let i = 1; i < pts.length; i++) {
@@ -144,15 +146,15 @@ function cumulative(pts) {
   return cum;
 }
 
-// Point (and direction) at a given distance along the loop
+// Hitta plats (och riktning) efter en viss väg längs ringen.
 function pointAt(pts, cum, d) {
   let lo = 0, hi = cum.length - 1;
-  while (hi - lo > 1) {
+  while (hi - lo > 1) {   // leta snabbt: dela på mitten om och om igen
     const mid = (lo + hi) >> 1;
     if (cum[mid] < d) lo = mid; else hi = mid;
   }
   const k = Math.min(1, Math.max(0, (d - cum[lo]) / (cum[hi] - cum[lo] || 1)));
-  // direction from a slightly wider window, so letters turn smoothly
+  // Titta lite längre fram och bak för riktning. Då svänger bokstäver mjukt.
   const a = pts[Math.max(0, lo - 2)], b = pts[Math.min(pts.length - 1, hi + 2)];
   return {
     x: pts[lo][0] + (pts[hi][0] - pts[lo][0]) * k,
@@ -161,20 +163,19 @@ function pointAt(pts, cum, d) {
   };
 }
 
-// ── Centre image (placeholder) with soft edges ──
-// The picture is faded out with a blurred alpha mask, so its edges dissolve
-// smoothly into whatever is behind it (works with any background colour).
+// ── Bild mitt i ringen (grå låda tills riktig bild finns) ──
+// Kanten är mjuk. Vi gör suddig mask. Bild löses upp i bakgrund. Funkar med vilken färg som helst.
 {
-  const cx = 600, cy = 350;
+  const cx = 600, cy = 350;                           // mitt på ritning
   const w = settings.imageWidth, h = settings.imageHeight;
-  const x = cx - w / 2, y = cy - h / 2;
+  const x = cx - w / 2, y = cy - h / 2;               // övre vänstra hörn
 
   const photo = new PIXI.Container();
   const content = new PIXI.Container();
   photo.addChild(content);
   world.addChild(photo);
 
-  // Grey placeholder (hidden once a real image loads)
+  // Grå låda med ordet "image". Göms när riktig bild kommer.
   const placeholder = new PIXI.Container();
   const label = new PIXI.Text({
     text: "image",
@@ -186,105 +187,110 @@ function pointAt(pts, cum, d) {
   placeholder.addChild(new PIXI.Graphics().rect(x, y, w, h).fill(0xbdbdbd), label);
   content.addChild(placeholder);
 
-  // Swap in a real image when settings.imageUrl is set (cropped to fill the box)
+  // Om imageUrl finns: ladda bild. Klipp den så den fyller lådan.
   if (settings.imageUrl) {
     PIXI.Assets.load(settings.imageUrl).then((tex) => {
       const sprite = new PIXI.Sprite(tex);
       sprite.anchor.set(0.5);
       sprite.position.set(cx, cy);
       sprite.scale.set(Math.max(w / tex.width, h / tex.height));
-      // keep it inside the box so it can't spill past the faded edge
+      // Klipp bild till lådan. Annars sticker den ut över mjuk kant.
       const crop = new PIXI.Graphics().rect(x, y, w, h).fill(0xffffff);
       sprite.mask = crop;
       content.addChild(crop, sprite);
-      placeholder.visible = false;
+      placeholder.visible = false;   // göm grå låda
     });
   }
 
   if (settings.edgeBlur > 0) {
-    // Soft mask, built once: a white rectangle pulled in from the edges, then blurred
+    // Mjuk mask, görs en gång: vit ruta lite inåt från kant, sen suddig.
+    // Vitt = syns. Genomskinligt = göms. Suddig kant = mjuk övergång.
     const e = settings.edgeBlur, pad = e * 3;
     const frame = new PIXI.Rectangle(x - pad, y - pad, w + pad * 2, h + pad * 2);
     const src = new PIXI.Container();
     src.addChild(
-      new PIXI.Graphics().rect(frame.x, frame.y, frame.width, frame.height).fill({ color: 0x000000, alpha: 0 }),
-      new PIXI.Graphics().rect(x + e, y + e, w - e * 2, h - e * 2).fill(0xffffff),
+      new PIXI.Graphics().rect(frame.x, frame.y, frame.width, frame.height).fill({ color: 0x000000, alpha: 0 }),   // osynlig ram så suddet får plats
+      new PIXI.Graphics().rect(x + e, y + e, w - e * 2, h - e * 2).fill(0xffffff),                                  // vit ruta
     );
     src.filters = [new PIXI.BlurFilter({ strength: e * 0.7, quality: 6 })];
 
     const maskSprite = new PIXI.Sprite(app.renderer.generateTexture({ target: src, frame, resolution: 1 }));
     maskSprite.position.set(frame.x, frame.y);
     photo.addChild(maskSprite);
-    content.mask = maskSprite;
+    content.mask = maskSprite;   // maska bild med suddig ruta
   }
 }
 
-// ── Build the scene ──
+// ── Bygg scen ──
 
-const redG = new PIXI.Graphics();
+const redG = new PIXI.Graphics();   // röd ring ritas här
 world.addChild(redG);
 
-// Size the labels once, from the loop's length
-const weights = projects.map((p) => p.title.length + 2);
+// Bestäm storlek på bokstäver en gång. Beror på hur lång ringen är.
+const weights = projects.map((p) => p.title.length + 2);          // långt ord = större bit
 const weightSum = weights.reduce((a, b) => a + b, 0);
 const firstTotal = cumulative(mainLoop(0)).at(-1);
 const fontSize = Math.max(11, Math.min(settings.maxFontSize, (firstTotal / weightSum) * 1.5));
-const bandWidth = fontSize * 1.3;
-const charWidth = fontSize * 0.6;   // monospace letters are 0.6 em wide
+const bandWidth = fontSize * 1.3;   // hur tjock färgad bit är
+const charWidth = fontSize * 0.6;   // Courier-bokstav är 0.6 bred
 
+// Gör en bit per projekt: färgad stripe + en liten text per bokstav.
 const segments = projects.map((p, i) => {
   const g = new PIXI.Graphics();
-  g.eventMode = "static";
-  g.cursor = "pointer";
+  g.eventMode = "static";    // låt mus röra vid bit
+  g.cursor = "pointer";      // handpekare
   world.addChild(g);
 
-  const base = i % 2 === 0 ? COLORS.green : COLORS.black;
-  const idleText = base === COLORS.black ? COLORS.white : COLORS.black;
+  const base = i % 2 === 0 ? COLORS.green : COLORS.black;           // grön, svart, grön, svart...
+  const idleText = base === COLORS.black ? COLORS.white : COLORS.black;   // text syns mot bit
   const seg = { g, base, hover: false, chars: [] };
 
+  // En text per bokstav, så de kan följa böjd ring.
   for (const ch of p.title) {
     const t = new PIXI.Text({ text: ch, style: { fontFamily: FONT, fontSize, fill: idleText }, resolution: 4 });
     t.anchor.set(0.5);
-    t.eventMode = "none";
-    t.visible = ch !== " ";
+    t.eventMode = "none";      // bokstav ignorerar mus. Biten under tar musen.
+    t.visible = ch !== " ";    // mellanrum syns inte
     world.addChild(t);
     seg.chars.push(t);
   }
 
+  // Mus på bit = bit blir röd, text blir vit.
   const setHover = (on) => {
     seg.hover = on;
     seg.chars.forEach((t) => { t.style.fill = on ? COLORS.white : idleText; });
   };
   g.on("pointerover", () => setHover(true));
   g.on("pointerout", () => setHover(false));
-  g.on("pointertap", () => { location.href = p.url; });
+  g.on("pointertap", () => { location.href = p.url; });   // klick = gå till sida
   return seg;
 });
 
-// ── Draw every frame ──
+// ── Rita varje bild-ruta ──
 
 function draw(time) {
-  // Scale the 1200 x 700 drawing to fit the window, centred
+  // Passa ritning 1200 x 700 i fönster. Håll den i mitten.
   const s = Math.min(app.screen.width / W, app.screen.height / H);
   world.scale.set(s);
   world.position.set((app.screen.width - W * s) / 2, (app.screen.height - H * s) / 2);
 
-  // Red loop (behind)
+  // Röd ring (ligger bakom)
   redG.clear().poly(redLoop(time).flat()).stroke({ width: settings.redWidth, color: COLORS.red, join: "round" });
 
-  // Main loop
+  // Ring med ord
   const pts = mainLoop(time);
   const cum = cumulative(pts);
-  const total = cum.at(-1);
+  const total = cum.at(-1);   // hela ringens längd
 
   let acc = 0;
   segments.forEach((seg, i) => {
+    // Varje bit får sin del av ringen.
     const start = (acc / weightSum) * total;
     acc += weights[i];
     const end = (acc / weightSum) * total;
 
-    // The coloured band: a stretch of the loop, running a hair past its end so it
-    // overlaps the next band (no gap at the join). The last one wraps round to the first.
+    // Färgad bit = stycke av ringen. Går lite förbi slutet, så ingen glipa mot nästa.
+    // Sista biten går runt och möter första.
     const first = pointAt(pts, cum, start);
     seg.g.clear().moveTo(first.x, first.y);
     pts.forEach((p, k) => { if (cum[k] > start && cum[k] < end) seg.g.lineTo(p[0], p[1]); });
@@ -293,18 +299,18 @@ function draw(time) {
     seg.g.lineTo(last.x, last.y).lineTo(over.x, over.y);
     seg.g.stroke({ width: bandWidth, color: seg.hover ? COLORS.red : seg.base, cap: "butt", join: "round" });
 
-    // Is this label heading leftwards (upside down)? If so, write it the other way round.
-    // The two thresholds stop a label from flip-flopping while it sits near vertical.
+    // Pekar ord åt vänster (uppochner)? Då skriv ord baklänges så det blir rätt.
+    // Två gränser (-0.2 och 0.2) så ord inte hoppar fram och tillbaka nära lodrätt.
     const lean = Math.cos(pointAt(pts, cum, (start + end) / 2).angle);
     if (seg.flipped === undefined) seg.flipped = lean < 0;
     else if (!seg.flipped && lean < -0.2) seg.flipped = true;
     else if (seg.flipped && lean > 0.2) seg.flipped = false;
 
-    // The letters: centred on the band, one by one
+    // Bokstäver: mitt på biten, en och en.
     const n = seg.chars.length;
     const from = start + (end - start - n * charWidth) / 2;
     seg.chars.forEach((t, j) => {
-      const slot = seg.flipped ? n - 1 - j : j;   // reversed order when flipped
+      const slot = seg.flipped ? n - 1 - j : j;   // vänd ordning om vänd
       const p = pointAt(pts, cum, from + (slot + 0.5) * charWidth);
       t.position.set(p.x, p.y);
       t.rotation = seg.flipped ? p.angle + Math.PI : p.angle;
@@ -312,19 +318,19 @@ function draw(time) {
   });
 }
 
-// ── Spacebar boost: hold space to speed the loop up, release to ease back ──
-let boost = 1, boostTarget = 1;
+// ── Mellanslag = snabb ring. Släpp = långsam igen. ──
+let boost = 1, boostTarget = 1;   // boost = fart nu. boostTarget = fart vi vill ha.
 addEventListener("keydown", (e) => {
-  if (e.code === "Space") { e.preventDefault(); boostTarget = settings.boostSpeed; }
+  if (e.code === "Space") { e.preventDefault(); boostTarget = settings.boostSpeed; }   // preventDefault = sidan scrollar inte
 });
 addEventListener("keyup", (e) => { if (e.code === "Space") boostTarget = 1; });
-addEventListener("blur", () => { boostTarget = 1; });   // don't get stuck fast if focus is lost
+addEventListener("blur", () => { boostTarget = 1; });   // fönster tappar fokus = sluta vara snabb. Annars fastnar.
 
 let time = 0;
 app.ticker.add(({ deltaMS }) => {
-  // Ease the multiplier toward its target (frame-rate independent)
+  // Fart glider mjukt mot målet. Samma känsla på snabb och långsam dator.
   boost += (boostTarget - boost) * (1 - Math.exp(-deltaMS / settings.boostEase));
-  if (!reduceMotion) time += deltaMS * settings.speed * boost;
+  if (!reduceMotion) time += deltaMS * settings.speed * boost;   // tid går framåt (utom om människa vill ha stilla)
   draw(time);
 });
   </script>
