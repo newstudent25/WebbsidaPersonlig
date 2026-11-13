@@ -5,23 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Erik Selin</title>
   <style>
-    :root { --font: "Courier New", Courier, monospace; }
-
     html, body {
       margin: 0;
       height: 100%;
       background: #eeeeee;
-      font-family: var(--font);
+      font-family: "Courier New", Courier, monospace;
       overflow: hidden;
     }
-
-    /* The Pixi canvas fills the page */
-    canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      display: block;
-    }
+    canvas { position: fixed; top: 0; left: 0; display: block; }
 
     /* Name in the corner, on top of the canvas */
     header {
@@ -52,19 +43,19 @@
 //    url:   where it links to (a page, a folder, or an outside link)
 // ─────────────────────────────────────────────────────────────
 const projects = [
-  { title: "placeholder",     url: "#" },
-  { title: "project one",     url: "project-one.html" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
-  { title: "placeholder",     url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "project one", url: "project-one.html" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
+  { title: "placeholder", url: "#" },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -77,34 +68,31 @@ const settings = {
   redWidth: 26,        // thickness of the red loop
   boostSpeed: 8,       // speed multiplier while spacebar is held
   boostEase: 250,      // ms to ease up/down (higher = slower, smoother)
+  imageUrl: null,      // e.g. "me.jpg" — leave null to show the grey placeholder
+  imageWidth: 420,     // size of the centre box (in the 1200 x 700 drawing)
+  imageHeight: 240,
+  edgeBlur: 26,        // how soft the image edges are (0 = sharp)
 };
 
-const COLORS = {
-  background: "#eeeeee",
-  green: 0x357a1e,
-  black: 0x000000,
-  red: 0xe83323,
-  white: 0xffffff,
-};
+const COLORS = { background: "#eeeeee", green: 0x357a1e, black: 0x000000, red: 0xe83323, white: 0xffffff };
 const FONT = "Courier New, Courier, monospace";
 
 // ─────────────────────────────────────────────────────────────
 //  Below here is the engine — you shouldn't need to edit it
 // ─────────────────────────────────────────────────────────────
-const W = 1200, H = 700;      // the drawing is 1200 x 700 and scaled to fit the window
+const W = 1200, H = 700;   // the drawing is 1200 x 700 and scaled to fit the window
 const TAU = Math.PI * 2;
-const CTRL = 10;              // control points per loop
-const STEPS = 40;             // samples between control points
-const OVERLAP = 3;            // how far each band tucks under the next one
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const CTRL = 10;           // control points per loop
+const STEPS = 40;          // samples between control points
+const OVERLAP = 3;         // how far each band tucks under the next one
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Start Pixi and put its canvas on the page
 const app = new PIXI.Application();
 await app.init({
   resizeTo: window,
   background: COLORS.background,
   antialias: true,
-  resolution: window.devicePixelRatio || 1,
+  resolution: devicePixelRatio || 1,
   autoDensity: true,
 });
 document.body.appendChild(app.canvas);
@@ -116,34 +104,28 @@ app.stage.addChild(world);
 
 // A wobbly closed shape: control points around an ellipse, pushed in/out by slow waves
 function controlPoints(t, cx, cy, rx, ry, seed) {
-  const pts = [];
-  for (let i = 0; i < CTRL; i++) {
+  return Array.from({ length: CTRL }, (_, i) => {
     const a = (i / CTRL) * TAU;
     const f = 1 + settings.wobble * (
       0.6 * Math.sin(a * 2 + seed + t * 0.00031) +
       0.4 * Math.sin(a * 3 - seed * 1.3 + t * 0.00047)
     );
-    pts.push([cx + rx * f * Math.cos(a), cy + ry * f * Math.sin(a)]);
-  }
-  return pts;
+    return [cx + rx * f * Math.cos(a), cy + ry * f * Math.sin(a)];
+  });
 }
 
-// Smooth closed curve (Catmull-Rom) through the control points
+// One coordinate of a Catmull-Rom spline
+const spline = (a, b, c, d, u) =>
+  0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u * u + (-a + 3 * b - 3 * c + d) * u * u * u);
+
+// Smooth closed curve through the control points
 function smooth(ctrl) {
-  const out = [];
-  const n = ctrl.length;
+  const n = ctrl.length, out = [];
   for (let i = 0; i < n; i++) {
-    const p0 = ctrl[(i - 1 + n) % n], p1 = ctrl[i];
-    const p2 = ctrl[(i + 1) % n],     p3 = ctrl[(i + 2) % n];
+    const [p0, p1, p2, p3] = [-1, 0, 1, 2].map((o) => ctrl[(i + o + n) % n]);
     for (let k = 0; k < STEPS; k++) {
-      const u = k / STEPS, u2 = u * u, u3 = u2 * u;
-      const x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * u +
-        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 +
-        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3);
-      const y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * u +
-        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 +
-        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3);
-      out.push([x, y]);
+      const u = k / STEPS;
+      out.push([spline(p0[0], p1[0], p2[0], p3[0], u), spline(p0[1], p1[1], p2[1], p3[1], u)]);
     }
   }
   out.push(out[0]); // close the loop
@@ -153,6 +135,7 @@ function smooth(ctrl) {
 const mainLoop = (t) => smooth(controlPoints(t, 600, 350, 430, 250, 0));
 const redLoop  = (t) => smooth(controlPoints(t, 640, 360, 470, 270, 2.1));
 
+// Running distance along the loop at each point
 function cumulative(pts) {
   const cum = [0];
   for (let i = 1; i < pts.length; i++) {
@@ -168,13 +151,72 @@ function pointAt(pts, cum, d) {
     const mid = (lo + hi) >> 1;
     if (cum[mid] < d) lo = mid; else hi = mid;
   }
-  const span = cum[hi] - cum[lo] || 1;
-  const k = Math.min(1, Math.max(0, (d - cum[lo]) / span));
-  const x = pts[lo][0] + (pts[hi][0] - pts[lo][0]) * k;
-  const y = pts[lo][1] + (pts[hi][1] - pts[lo][1]) * k;
+  const k = Math.min(1, Math.max(0, (d - cum[lo]) / (cum[hi] - cum[lo] || 1)));
   // direction from a slightly wider window, so letters turn smoothly
   const a = pts[Math.max(0, lo - 2)], b = pts[Math.min(pts.length - 1, hi + 2)];
-  return { x, y, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+  return {
+    x: pts[lo][0] + (pts[hi][0] - pts[lo][0]) * k,
+    y: pts[lo][1] + (pts[hi][1] - pts[lo][1]) * k,
+    angle: Math.atan2(b[1] - a[1], b[0] - a[0]),
+  };
+}
+
+// ── Centre image (placeholder) with soft edges ──
+// The picture is faded out with a blurred alpha mask, so its edges dissolve
+// smoothly into whatever is behind it (works with any background colour).
+{
+  const cx = 600, cy = 350;
+  const w = settings.imageWidth, h = settings.imageHeight;
+  const x = cx - w / 2, y = cy - h / 2;
+
+  const photo = new PIXI.Container();
+  const content = new PIXI.Container();
+  photo.addChild(content);
+  world.addChild(photo);
+
+  // Grey placeholder (hidden once a real image loads)
+  const placeholder = new PIXI.Container();
+  const label = new PIXI.Text({
+    text: "image",
+    style: { fontFamily: FONT, fontSize: 16, fill: 0x777777 },
+    resolution: 4,
+  });
+  label.anchor.set(0.5);
+  label.position.set(cx, cy);
+  placeholder.addChild(new PIXI.Graphics().rect(x, y, w, h).fill(0xbdbdbd), label);
+  content.addChild(placeholder);
+
+  // Swap in a real image when settings.imageUrl is set (cropped to fill the box)
+  if (settings.imageUrl) {
+    PIXI.Assets.load(settings.imageUrl).then((tex) => {
+      const sprite = new PIXI.Sprite(tex);
+      sprite.anchor.set(0.5);
+      sprite.position.set(cx, cy);
+      sprite.scale.set(Math.max(w / tex.width, h / tex.height));
+      // keep it inside the box so it can't spill past the faded edge
+      const crop = new PIXI.Graphics().rect(x, y, w, h).fill(0xffffff);
+      sprite.mask = crop;
+      content.addChild(crop, sprite);
+      placeholder.visible = false;
+    });
+  }
+
+  if (settings.edgeBlur > 0) {
+    // Soft mask, built once: a white rectangle pulled in from the edges, then blurred
+    const e = settings.edgeBlur, pad = e * 3;
+    const frame = new PIXI.Rectangle(x - pad, y - pad, w + pad * 2, h + pad * 2);
+    const src = new PIXI.Container();
+    src.addChild(
+      new PIXI.Graphics().rect(frame.x, frame.y, frame.width, frame.height).fill({ color: 0x000000, alpha: 0 }),
+      new PIXI.Graphics().rect(x + e, y + e, w - e * 2, h - e * 2).fill(0xffffff),
+    );
+    src.filters = [new PIXI.BlurFilter({ strength: e * 0.7, quality: 6 })];
+
+    const maskSprite = new PIXI.Sprite(app.renderer.generateTexture({ target: src, frame, resolution: 1 }));
+    maskSprite.position.set(frame.x, frame.y);
+    photo.addChild(maskSprite);
+    content.mask = maskSprite;
+  }
 }
 
 // ── Build the scene ──
@@ -196,15 +238,12 @@ const segments = projects.map((p, i) => {
   g.cursor = "pointer";
   world.addChild(g);
 
-  const seg = { g, base: i % 2 === 0 ? COLORS.green : COLORS.black, hover: false, chars: [] };
-  const idleText = seg.base === COLORS.black ? COLORS.white : COLORS.black;
+  const base = i % 2 === 0 ? COLORS.green : COLORS.black;
+  const idleText = base === COLORS.black ? COLORS.white : COLORS.black;
+  const seg = { g, base, hover: false, chars: [] };
 
   for (const ch of p.title) {
-    const t = new PIXI.Text({
-      text: ch,
-      style: { fontFamily: FONT, fontSize, fill: idleText },
-      resolution: 4,
-    });
+    const t = new PIXI.Text({ text: ch, style: { fontFamily: FONT, fontSize, fill: idleText }, resolution: 4 });
     t.anchor.set(0.5);
     t.eventMode = "none";
     t.visible = ch !== " ";
@@ -214,38 +253,29 @@ const segments = projects.map((p, i) => {
 
   const setHover = (on) => {
     seg.hover = on;
-    const fill = on ? COLORS.white : idleText;
-    seg.chars.forEach((t) => { t.style.fill = fill; });
+    seg.chars.forEach((t) => { t.style.fill = on ? COLORS.white : idleText; });
   };
   g.on("pointerover", () => setHover(true));
   g.on("pointerout", () => setHover(false));
-  g.on("pointertap", () => { window.location.href = p.url; });
+  g.on("pointertap", () => { location.href = p.url; });
   return seg;
 });
 
 // ── Draw every frame ──
 
-function layout() {
+function draw(time) {
+  // Scale the 1200 x 700 drawing to fit the window, centred
   const s = Math.min(app.screen.width / W, app.screen.height / H);
   world.scale.set(s);
   world.position.set((app.screen.width - W * s) / 2, (app.screen.height - H * s) / 2);
-}
-
-function draw(time) {
-  layout();
 
   // Red loop (behind)
-  const rp = redLoop(time);
-  redG.clear();
-  redG.moveTo(rp[0][0], rp[0][1]);
-  for (let i = 1; i < rp.length; i++) redG.lineTo(rp[i][0], rp[i][1]);
-  redG.closePath();
-  redG.stroke({ width: settings.redWidth, color: COLORS.red, join: "round" });
+  redG.clear().poly(redLoop(time).flat()).stroke({ width: settings.redWidth, color: COLORS.red, join: "round" });
 
   // Main loop
   const pts = mainLoop(time);
   const cum = cumulative(pts);
-  const total = cum[cum.length - 1];
+  const total = cum.at(-1);
 
   let acc = 0;
   segments.forEach((seg, i) => {
@@ -253,19 +283,14 @@ function draw(time) {
     acc += weights[i];
     const end = (acc / weightSum) * total;
 
-    // The coloured band: a stretch of the loop
+    // The coloured band: a stretch of the loop, running a hair past its end so it
+    // overlaps the next band (no gap at the join). The last one wraps round to the first.
     const first = pointAt(pts, cum, start);
-    seg.g.clear();
-    seg.g.moveTo(first.x, first.y);
-    for (let k = 0; k < pts.length; k++) {
-      if (cum[k] > start && cum[k] < end) seg.g.lineTo(pts[k][0], pts[k][1]);
-    }
+    seg.g.clear().moveTo(first.x, first.y);
+    pts.forEach((p, k) => { if (cum[k] > start && cum[k] < end) seg.g.lineTo(p[0], p[1]); });
     const last = pointAt(pts, cum, end);
-    seg.g.lineTo(last.x, last.y);
-    // Run a hair past the end so this band overlaps the next one (no gap at the join).
-    // The last band wraps round and overlaps the start of the first.
     const over = pointAt(pts, cum, (end + OVERLAP) % total);
-    seg.g.lineTo(over.x, over.y);
+    seg.g.lineTo(last.x, last.y).lineTo(over.x, over.y);
     seg.g.stroke({ width: bandWidth, color: seg.hover ? COLORS.red : seg.base, cap: "butt", join: "round" });
 
     // Is this label heading leftwards (upside down)? If so, write it the other way round.
@@ -288,25 +313,18 @@ function draw(time) {
 }
 
 // ── Spacebar boost: hold space to speed the loop up, release to ease back ──
-let boost = 1;          // current speed multiplier (eases toward boostTarget)
-let boostTarget = 1;
-window.addEventListener("keydown", (e) => {
-  if (e.code === "Space") {
-    e.preventDefault();
-    boostTarget = settings.boostSpeed;
-  }
+let boost = 1, boostTarget = 1;
+addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); boostTarget = settings.boostSpeed; }
 });
-window.addEventListener("keyup", (e) => {
-  if (e.code === "Space") boostTarget = 1;
-});
-// Don't get stuck fast if the window loses focus while space is held
-window.addEventListener("blur", () => { boostTarget = 1; });
+addEventListener("keyup", (e) => { if (e.code === "Space") boostTarget = 1; });
+addEventListener("blur", () => { boostTarget = 1; });   // don't get stuck fast if focus is lost
 
 let time = 0;
-app.ticker.add((ticker) => {
+app.ticker.add(({ deltaMS }) => {
   // Ease the multiplier toward its target (frame-rate independent)
-  boost += (boostTarget - boost) * (1 - Math.exp(-ticker.deltaMS / settings.boostEase));
-  if (!reduceMotion) time += ticker.deltaMS * settings.speed * boost;
+  boost += (boostTarget - boost) * (1 - Math.exp(-deltaMS / settings.boostEase));
+  if (!reduceMotion) time += deltaMS * settings.speed * boost;
   draw(time);
 });
   </script>
