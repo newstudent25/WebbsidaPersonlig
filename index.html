@@ -66,7 +66,7 @@ const settings = {
   wobble: 0.16,        // hur skev och vinglig ringen är
   maxFontSize: 18,     // största bokstav på biten
   redWidth: 26,        // hur tjock röd ring är
-  boostSpeed: 8,       // hur många gånger snabbare när mellanslag hålls ner
+  boostSpeed: 8,       // hur många gånger snabbare när du håller ner musen på tom plats
   boostEase: 250,      // tid (ms) att bli snabb/långsam. Högre = mjukare
   imageUrl: null,      // t.ex. "me.jpg". null = grå låda
   imageWidth: 420,     // bredd på bildlåda mitt i
@@ -318,13 +318,16 @@ function draw(time) {
   });
 }
 
-// ── Mellanslag = snabb ring. Släpp = långsam igen. ──
+// ── Håll ner musen på tom plats = snabb ring. Släpp = långsam igen. ──
 let boost = 1, boostTarget = 1;   // boost = fart nu. boostTarget = fart vi vill ha.
-addEventListener("keydown", (e) => {
-  if (e.code === "Space") { e.preventDefault(); boostTarget = settings.boostSpeed; }   // preventDefault = sidan scrollar inte
-});
-addEventListener("keyup", (e) => { if (e.code === "Space") boostTarget = 1; });
-addEventListener("blur", () => { boostTarget = 1; });   // fönster tappar fokus = sluta vara snabb. Annars fastnar.
+app.stage.eventMode = "static";   // låt scen höra mus
+app.stage.hitArea = app.screen;   // hela fönster räknas som scen
+// target === scen betyder: mus tryckte på tomt, inte på bit/länk.
+app.stage.on("pointerdown", (e) => { if (e.target === app.stage) boostTarget = settings.boostSpeed; });
+const stopBoost = () => { boostTarget = 1; };
+addEventListener("pointerup", stopBoost);       // släpp var som helst = sluta
+addEventListener("pointercancel", stopBoost);   // tryck avbröts = sluta
+addEventListener("blur", stopBoost);            // fönster tappar fokus = sluta. Annars fastnar.
 
 let time = 0;
 app.ticker.add(({ deltaMS }) => {
