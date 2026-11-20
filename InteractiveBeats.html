@@ -168,6 +168,23 @@
             border-top: 1px solid #1d1d1f;
             position: relative;
         }
+        .ai-disclosure {
+            max-width: 720px;
+            margin: 0 auto 24px;
+            padding: 18px 22px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            background: rgba(29, 29, 31, 0.72);
+            color: #c7c7cc;
+            text-align: left;
+        }
+        .ai-disclosure h2 {
+            margin-bottom: 6px;
+            color: var(--fg);
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .ai-disclosure p { font-size: 14px; }
 
         /* Ambient background graphic (transparent canvas behind everything) */
         #bg {
@@ -268,7 +285,13 @@
         </div>
     </div>
 
-    <footer>Interactive Beats &copy; 2026</footer>
+    <footer>
+        <section class="ai-disclosure" aria-labelledby="ai-disclosure-title">
+            <h2 id="ai-disclosure-title">AI use</h2>
+            <p>Claude was used to vibe-code the Interactive Beats program in p5.</p>
+        </section>
+        Interactive Beats &copy; 2026
+    </footer>
 
     <script>
         /* Play the in-use video while its scene is visible, and pause it offscreen. */
